@@ -1,0 +1,23 @@
+name: SemanticDiff policy gate
+on:
+  pull_request:
+    paths: ["config/**", "schemas/**", "policies/**"]
+permissions:
+  contents: read
+jobs:
+  guardrails:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: {fetch-depth: 0}
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: pip install .
+      - name: Enforce semantic policy
+        run: |
+          git show "${{ github.event.pull_request.base.sha }}:config/app.yaml" > /tmp/base.yaml
+          semanticdiff /tmp/base.yaml config/app.yaml \
+            --schema schemas/app.schema.json \
+            --rules config/diff-rules.yaml \
+            --policy policies/app-policy.yaml \
+            --fail-on-invalid --fail-on-policy

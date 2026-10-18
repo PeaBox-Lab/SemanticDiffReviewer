@@ -1,0 +1,31 @@
+name: Semantic configuration check
+on:
+  pull_request:
+    paths: ["config/**", "schemas/**"]
+jobs:
+  semantic-diff:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install .
+      - name: Compare configuration and validate schema
+        run: |
+          git show "${{ github.event.pull_request.base.sha }}:config/app.yaml" > /tmp/base.yaml
+          semanticdiff /tmp/base.yaml config/app.yaml \
+            --schema schemas/app.schema.json \
+            --rules config/diff-rules.yaml \
+            --format markdown \
+            --output semantic-diff.md \
+            --fail-on-invalid
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: semantic-diff-report
+          path: semantic-diff.md

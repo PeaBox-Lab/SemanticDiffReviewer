@@ -1,0 +1,26 @@
+name: Bug report
+description: Report a reproducible SemanticDiff problem
+title: "[Bug]: "
+labels: [bug, triage]
+body:
+  - type: markdown
+    attributes: {value: "Thanks for helping improve SemanticDiff. Remove secrets before attaching configuration."}
+  - type: input
+    id: version
+    attributes: {label: Version, placeholder: "semanticdiff --version or release tag"}
+    validations: {required: true}
+  - type: dropdown
+    id: interface
+    attributes: {label: Interface, options: [CLI, Web UI, Docker, GitHub Action, Python API]}
+    validations: {required: true}
+  - type: textarea
+    id: reproduce
+    attributes: {label: Reproduction steps}
+    validations: {required: true}
+  - type: textarea
+    id: expected
+    attributes: {label: Expected behavior}
+    validations: {required: true}
+  - type: textarea
+    id: logs
+    attributes: {label: Logs or sanitized sample documents, render: shell}
