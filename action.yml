@@ -1,0 +1,55 @@
+name: SemanticDiff
+summary: Semantic JSON/YAML change analysis and policy gate
+description: Compare structured configuration, validate schemas, enforce policies, and generate PR/SARIF reports.
+author: PeaBox Labs
+branding:
+  icon: git-pull-request
+  color: purple
+inputs:
+  left:
+    description: Baseline JSON or YAML document
+    required: true
+  right:
+    description: Candidate JSON or YAML document
+    required: true
+  rules:
+    description: Optional SemanticDiff rules file
+    required: false
+  schema:
+    description: Optional JSON Schema
+    required: false
+  policy:
+    description: Optional policy file
+    required: false
+  fail-on-diff:
+    description: Fail when semantic differences exist
+    default: "false"
+  fail-level:
+    description: Minimum severity that fails the check
+    required: false
+  report:
+    description: Output report path
+    default: semanticdiff-pr.md
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: python -m pip install "${{ github.action_path }}"
+    - shell: bash
+      env:
+        INPUT_LEFT: ${{ inputs.left }}
+        INPUT_RIGHT: ${{ inputs.right }}
+        INPUT_RULES: ${{ inputs.rules }}
+        INPUT_SCHEMA: ${{ inputs.schema }}
+        INPUT_POLICY: ${{ inputs.policy }}
+        INPUT_FAIL_DIFF: ${{ inputs.fail-on-diff }}
+        INPUT_FAIL_LEVEL: ${{ inputs.fail-level }}
+        INPUT_REPORT: ${{ inputs.report }}
+      run: |
+        args=(compare "$INPUT_LEFT" "$INPUT_RIGHT" --format pr --output "$INPUT_REPORT")
+        [[ -n "$INPUT_RULES" ]] && args+=(--rules "$INPUT_RULES")
+        [[ -n "$INPUT_SCHEMA" ]] && args+=(--schema "$INPUT_SCHEMA" --fail-on-invalid)
+        [[ -n "$INPUT_POLICY" ]] && args+=(--policy "$INPUT_POLICY" --fail-on-policy)
+        [[ "$INPUT_FAIL_DIFF" == "true" ]] && args+=(--fail-on-diff)
+        [[ -n "$INPUT_FAIL_LEVEL" ]] && args+=(--fail-level "$INPUT_FAIL_LEVEL")
+        semanticdiff "${args[@]}"

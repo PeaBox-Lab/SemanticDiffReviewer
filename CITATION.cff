@@ -1,0 +1,10 @@
+cff-version: 1.2.0
+title: SemanticDiff
+message: If SemanticDiff supports your research or engineering work, please cite this software.
+type: software
+version: 3.0.0
+date-released: 2026-10-19
+authors:
+  - name: PeaBox Labs
+license: MIT
+repository-code: https://github.com/OWNER/semanticdiff

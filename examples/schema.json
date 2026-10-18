@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": ["service"],
+  "properties": {
+    "service": {
+      "type": "object",
+      "required": ["name", "replicas", "endpoints"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "replicas": {"type": "integer", "minimum": 1, "maximum": 20},
+        "endpoints": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "path", "timeout"],
+            "properties": {
+              "id": {"type": "string"},
+              "path": {"type": "string", "pattern": "^/"},
+              "timeout": {"type": "number", "exclusiveMinimum": 0}
+            },
+            "additionalProperties": false
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,10 @@
+ignore_paths:
+  - /service/updated_at
+case_insensitive_paths:
+  - /service/name
+unordered_paths:
+  - /service/tags
+keyed_arrays:
+  /service/endpoints: id
+numeric_tolerance:
+  /service/endpoints/*/timeout: 0.05

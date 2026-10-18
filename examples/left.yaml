@@ -1,0 +1,12 @@
+service:
+  name: Payments API
+  replicas: 3
+  tags: [public, stable]
+  updated_at: 2026-10-18
+  endpoints:
+    - id: health
+      path: /health
+      timeout: 1.0
+    - id: pay
+      path: /payments
+      timeout: 3.0

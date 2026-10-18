@@ -1,0 +1,12 @@
+{
+  "service": {
+    "name": "payments api",
+    "replicas": 4,
+    "tags": ["stable", "public"],
+    "updated_at": "2026-10-19",
+    "endpoints": [
+      {"id":"pay", "path":"/v2/payments", "timeout":3.04},
+      {"id":"health", "path":"/health", "timeout":1.0}
+    ]
+  }
+}

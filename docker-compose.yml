@@ -1,0 +1,12 @@
+services:
+  semanticdiff:
+    build: .
+    image: semanticdiff:2.0.0
+    ports:
+      - "8765:8765"
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true

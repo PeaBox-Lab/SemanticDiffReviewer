@@ -1,0 +1,7 @@
+# Example deployment guardrails
+deny_changes:
+  - /service/name
+deny_removals:
+  - /service/endpoints/*
+deny_additions: []
+max_changes: 10
