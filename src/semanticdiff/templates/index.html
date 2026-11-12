@@ -1,19 +1,338 @@
-<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SemanticDiff Studio</title><style>
-:root{--bg:#07101f;--panel:#101b30;--line:#263754;--text:#eef4ff;--muted:#96a8c8;--brand:#7795ff}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at top,#152d55,#07101f 55%);color:var(--text);font:14px system-ui}header,main{max-width:1500px;margin:auto;padding:22px}header{display:flex;justify-content:space-between;align-items:center}h1{margin:0;font-size:28px}.muted{color:var(--muted)}.grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}.card{background:#101b30ee;border:1px solid var(--line);border-radius:18px;padding:16px;box-shadow:0 20px 60px #0005}textarea{width:100%;min-height:280px;background:#07101f;color:#eaf1ff;border:1px solid var(--line);border-radius:12px;padding:13px;font:13px ui-monospace,monospace}.small{min-height:120px}.bar,.stats,.filters{display:flex;gap:9px;flex-wrap:wrap;margin:14px 0}button,select,input{border:1px solid var(--line);border-radius:10px;padding:9px 13px;background:#1b2945;color:white}button{background:var(--brand);font-weight:700;cursor:pointer}.ghost{background:#1b2945}.pill{padding:8px 11px;border-radius:999px;background:#1b2945}.critical{color:#ff7b91}.high{color:#ffad67}.medium{color:#ffe07b}.low{color:#83e6b1}.row{display:grid;grid-template-columns:1.3fr .55fr .55fr 1fr;border-top:1px solid var(--line);padding:10px;gap:8px}.row:first-child{border:0}.head{font-weight:700;background:#17243d}.drop{border:1px dashed #6783bb;padding:10px;border-radius:10px;margin-bottom:10px;color:var(--muted)}pre{white-space:pre-wrap;margin:4px 0}.hidden{display:none}@media(max-width:900px){.grid{grid-template-columns:1fr}.row{grid-template-columns:1fr}.head{display:none}}
-</style></head><body><header><div><h1>SemanticDiff Studio</h1><div class="muted">Explain configuration changes without exposing your data.</div></div><span class="pill">Local-first</span></header><main><div class="bar"><select id="preset"><option value="">Strict comparison</option><option>api</option><option>kubernetes</option><option>package</option><option>human-friendly</option></select><button onclick="compareDocs()">Compare</button><button class="ghost" onclick="swap()">Swap sides</button><button class="ghost" onclick="sample()">Load sample</button><button class="ghost" onclick="clearAll()">Clear</button></div><div class="grid"><section class="card"><h2>Before</h2><div class="drop">Drop JSON/YAML here or <input type="file" onchange="readFile(event,'left')"></div><textarea id="left"></textarea></section><section class="card"><h2>After</h2><div class="drop">Drop JSON/YAML here or <input type="file" onchange="readFile(event,'right')"></div><textarea id="right"></textarea></section></div><div class="grid" style="margin-top:14px"><section class="card"><details><summary>Advanced comparison rules</summary><textarea class="small" id="rules">ignore_paths: []
-unordered_paths: []
-keyed_arrays: {}
-severity_paths:
-  /security/*: critical
-sensitive_paths:
-  - "*/credentials/*"</textarea></details></section><section class="card"><details><summary>JSON Schema validation</summary><textarea class="small" id="schema"></textarea></details></section></div><div class="bar"><button class="ghost" onclick="download('json')">JSON report</button><button class="ghost" onclick="download('markdown')">Markdown</button><button class="ghost" onclick="download('html')">HTML</button><span class="muted">Secret-like values are automatically redacted in reports.</span></div><section class="card"><div id="stats" class="stats"></div><div class="filters"><input id="search" placeholder="Filter by path or explanation" oninput="renderRows()"><select id="severity" onchange="renderRows()"><option value="">All impacts</option><option>critical</option><option>high</option><option>medium</option><option>low</option></select></div><div id="validation"></div><div id="rows"></div></section></main><script>
-let current=null; const $=s=>document.querySelector(s); const fields=()=>({left:$('#left').value,right:$('#right').value,rules:$('#rules').value,schema:$('#schema').value,preset:$('#preset').value});
-async function compareDocs(){let f=new FormData();Object.entries(fields()).forEach(([k,v])=>f.append(k,v));let r=await fetch('/api/compare',{method:'POST',body:f});if(!r.ok){$('#rows').textContent=await r.text();return}current=await r.json();render()}
-function render(){let s=current.summary;$('#stats').innerHTML=`<span class="pill">${current.equal?'✓ Equivalent':'≠ Different'}</span><span class="pill">Risk: ${current.risk||'info'}</span>`+Object.entries(s).map(([k,v])=>`<span class="pill">${k}: ${v}</span>`).join('');let v=current.validation;$('#validation').innerHTML=!v?'':v.valid?'<p class="low">✓ Both documents match the schema</p>':'<h3 class="high">Schema issues</h3>'+v.issues.map(x=>`<p>${esc(x.document)} <code>${esc(x.path)}</code>: ${esc(x.message)}</p>`).join('');renderRows()}
-function renderRows(){if(!current)return;let q=$('#search').value.toLowerCase(),sev=$('#severity').value;let ds=current.differences.filter(d=>(!sev||d.severity===sev)&&(!q||(d.path+' '+d.explanation).toLowerCase().includes(q)));$('#rows').innerHTML='<div class="row head"><div>Path and explanation</div><div>Change</div><div>Impact</div><div>Values</div></div>'+ds.map(d=>`<div class="row"><div><code>${esc(d.path)}</code><div class="muted">${esc(d.explanation)}</div></div><div>${d.kind}</div><div class="${d.severity}">${d.severity}</div><div><pre>Before: ${esc(JSON.stringify(d.left))}</pre><pre>After: ${esc(JSON.stringify(d.right))}</pre></div></div>`).join('')}
-function readFile(e,id){let f=e.target.files[0],r=new FileReader();r.onload=()=>{$('#'+id).value=r.result};r.readAsText(f)}
-function swap(){let x=$('#left').value;$('#left').value=$('#right').value;$('#right').value=x}function clearAll(){$('#left').value=$('#right').value=$('#schema').value='';current=null;$('#rows').innerHTML=$('#stats').innerHTML=''}
-function sample(){$('#left').value='service:\n  name: API\n  replicas: 2\n  token: old-secret\n  tags: [stable, public]';$('#right').value='service:\n  name: api\n  replicas: 4\n  token: new-secret\n  tags: [public, stable]';$('#preset').value='human-friendly';compareDocs()}
-async function download(fmt){let f=new FormData();Object.entries(fields()).forEach(([k,v])=>f.append(k,v));let r=await fetch('/export/'+fmt,{method:'POST',body:f}),b=await r.blob(),a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='semanticdiff.'+(fmt==='markdown'?'md':fmt);a.click()}
-function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}sample();
-</script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SemanticDiff Studio</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/8.0.1/normalize.css">
+<style>
+:root{
+  --bg:#0b1120; --bg2:#0f172a; --surface:#111a2e; --surface2:#0d1626; --card:#131f36;
+  --line:#243453; --line2:#1b2842; --text:#e6edf7; --muted:#8aa0c4; --muted2:#5f7293;
+  --primary:#6d8cff; --primary2:#3a6bff; --good:#3ddc97; --warn:#ffcf4d; --bad:#ff6070; --low:#7ee0ff;
+  --radius:14px; --shadow:0 20px 60px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{min-height:100vh;background:radial-gradient(1200px 700px at 65% -15%, #16284a 0%, transparent 60%),
+      radial-gradient(800px 500px at -15% 10%, #141f3c 0%, transparent 55%), var(--bg);
+     color:var(--text); font:15px/1.5 Inter,system-ui,sans-serif; padding:16px 18px 32px}
+.wrap{max-width:1460px;margin:0 auto;padding:0 6px}
+
+/* Header */
+header{position:sticky;top:0;z-index:40;backdrop-filter:blur(16px);background:rgba(11,17,32,.78);border-bottom:1px solid var(--line2);margin-bottom:16px}
+.topbar{display:flex;align-items:center;gap:14px;padding:14px 4px;flex-wrap:wrap}
+.brand{display:flex;align-items:center;gap:14px}
+.logo{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(135deg,var(--primary),var(--primary2));box-shadow:0 8px 24px rgba(99,140,255,.35),inset 0 1px 0 rgba(255,255,255,.3)}
+.logo svg{width:24px;height:24px;fill:#fff}
+.brand h1{font-size:19px;font-weight:800;letter-spacing:-.02em}
+.brand p{font-size:11.5px;color:var(--muted);margin-top:1px}
+.spacer{flex:1}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:5px 12px;border-radius:999px;background:var(--surface2);border:1px solid var(--line2);font-size:11.5px;color:var(--muted)}
+.pill .dot{width:7px;height:7px;border-radius:50%;background:var(--good);box-shadow:0 0 10px var(--good)}
+.icon-btn{width:36px;height:36px;border-radius:10px;border:1px solid var(--line2);background:var(--surface2);color:var(--muted);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:.15s}
+.icon-btn:hover{color:var(--text);border-color:var(--line)}
+.icon-btn svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* Layout */
+.workspace{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(320px,.8fr);gap:16px}
+@media(max-width:1100px){.workspace{grid-template-columns:1fr}}
+.card{background:linear-gradient(180deg,var(--surface),var(--surface2));border:1px solid var(--line2);border-radius:var(--radius);box-shadow:var(--shadow);padding:16px}
+.section-label{display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.section-label .line{flex:1;height:1px;background:var(--line2)}
+
+/* Toolbar */
+.toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.select{position:relative}
+select,input.text{appearance:none;-webkit-appearance:none;background:var(--surface2);border:1px solid var(--line2);border-radius:10px;color:var(--text);padding:10px 38px 10px 14px;font:600 13px Inter,system-ui,sans-serif;outline:none;cursor:pointer}
+.select::after{content:"▾";position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none;font-size:12px}
+.btn{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line2);background:var(--surface2);color:var(--text);border-radius:10px;padding:11px 16px;font:600 13px Inter;cursor:pointer;transition:.15s}
+.btn.primary{background:linear-gradient(135deg,var(--primary),var(--primary2));border-color:transparent;color:#fff;box-shadow:0 8px 22px rgba(99,140,255,.35)}
+.btn.ghost{background:transparent}
+.btn:hover{transform:translateY(-1px);border-color:var(--line);filter:brightness(1.08)}
+.btn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* Editors */
+.editors{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:900px){.editors{grid-template-columns:1fr}}
+textarea{width:100%;background:#050b16;border:1px solid var(--line2);border-radius:var(--radius);color:#dce8ff;font:13px/1.6 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;padding:14px;min-height:300px;resize:vertical;outline:none;transition:.15s}
+textarea:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(99,140,255,.18)}
+.drop{border:1px dashed #38507a;border-radius:10px 10px 0 0;padding:12px 14px;margin:0;color:var(--muted);font-size:12.5px;text-align:center;background:var(--surface2);border-bottom:none;cursor:pointer;transition:.15s}
+.drop.dragging{background:#162040;border-color:var(--primary);color:var(--primary)}
+
+/* Advanced / panels */
+details{border:1px solid var(--line2);border-radius:var(--radius);background:var(--surface2);overflow:hidden}
+summary{cursor:pointer;list-style:none;padding:12px 14px;font-weight:700;font-size:13px;color:var(--text);display:flex;align-items:center;gap:10px}
+summary::marker,summary::-webkit-details-marker{display:none}
+summary .chev{transition:transform .2s;color:var(--muted);font-size:11px}
+details[open] .chev{transform:rotate(90deg)}
+.panel{padding:0 12px 12px}
+input[type=file]{display:none}
+.hint{font-size:12px;color:var(--muted);margin-top:6px}
+.kbd{display:inline-block;padding:1px 6px;border:1px solid var(--line2);border-bottom-width:2px;border-radius:6px;background:#050b16;color:var(--low);font:11px ui-monospace,monospace}
+
+/* Results */
+.result-head{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;margin-bottom:12px}
+.risk{display:inline-flex;align-items:center;gap:8px;padding:7px 14px;border-radius:999px;font-weight:800;font-size:12px;letter-spacing:.03em;text-transform:uppercase}
+.risk-critical{background:#3a1020;color:#ff8a9a}
+.risk-high{background:#3a2010;color:#ffc08a}
+.risk-medium{background:#342c10;color:#ffe27b}
+.risk-low{background:#123823;color:#8df0b3}
+.risk-info{background:#112238;color:#8dd6ff}
+.equal-pill{padding:7px 14px;border-radius:999px;font-weight:700;font-size:12px}
+.eq{background:#123823;color:#8df0b3}.neq{background:#3a1020;color:#ff8a9a}
+
+.stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin:14px 0}
+@media(max-width:900px){.stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.stat{background:var(--surface2);border:1px solid var(--line2);border-radius:var(--radius);padding:14px;text-align:center}
+.stat b{font-size:26px;display:block;letter-spacing:-.02em}
+.stat span{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+
+/* Filters */
+.filters{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:12px}
+.chip{border:1px solid var(--line2);background:transparent;color:var(--muted);border-radius:999px;padding:7px 14px;font:600 12px Inter;cursor:pointer}
+.chip.active{background:var(--primary);border-color:transparent;color:#fff}
+.search-wrap{flex:1;min-width:220px;position:relative}
+.search-wrap input{width:100%;background:var(--surface2);border:1px solid var(--line2);border-radius:10px;padding:11px 14px 11px 38px;color:var(--text);font:13px Inter;outline:none}
+.search-wrap svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);width:16px;height:16px;stroke:var(--muted);fill:none;stroke-width:2}
+
+/* Table */
+.table-wrap{overflow:auto;border:1px solid var(--line2);border-radius:var(--radius)}
+table{width:100%;border-collapse:collapse;font-size:13px;min-width:820px}
+thead th{text-align:left;padding:12px 14px;background:#0d1626;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.08em}
+tbody td{padding:12px 14px;border-top:1px solid var(--line2);vertical-align:top}
+tbody tr:hover{background:rgba(109,140,255,.05)}
+.sev-critical{color:#ff8a9a}.sev-high{color:#ffc08a}.sev-medium{color:#ffe27b}.sev-low{color:#8df0b3}.sev-info{color:#8dd6ff}
+code.path{display:inline-block;background:#050b16;border:1px solid var(--line2);border-radius:6px;padding:2px 8px;color:var(--low);font-size:12px}
+.expl{font-size:12px;color:var(--muted);margin-top:6px}
+
+/* Toast */
+.toast{position:fixed;bottom:22px;right:22px;background:#16233f;border:1px solid var(--line);color:var(--text);padding:12px 16px;border-radius:12px;box-shadow:var(--shadow);display:flex;align-items:center;gap:12px;opacity:0;transform:translateY(14px);pointer-events:none;transition:.25s;z-index:50}
+.toast.show{opacity:1;transform:translateY(0)}
+.toast.good{border-color:#2c5a3a}.toast.bad{border-color:#5a2c36}
+
+/* Icons w tooltip */
+.label{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:700}
+.label svg{width:18px;height:18px;stroke:var(--primary);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+[data-tip]{position:relative;cursor:help}
+[data-tip]::after{content:attr(data-tip);position:absolute;bottom:calc(100% + 8px);left:50%;transform:translate(-50%,4px);background:#020817;border:1px solid var(--line);color:var(--text);font-size:12px;font-weight:500;padding:7px 10px;border-radius:8px;white-space:nowrap;opacity:0;pointer-events:none;transition:.15s;z-index:20}
+[data-tip]:hover::after,[data-tip]:focus::after{opacity:1;transform:translate(-50%,0)}
+
+/* Footer */
+footer{max-width:1460px;margin:20px auto 0;padding:16px 4px;border-top:1px solid var(--line2);display:flex;justify-content:space-between;color:var(--muted);font-size:11.5px;flex-wrap:wrap;gap:10px}
+
+</style>
+</head>
+<body>
+<header>
+  <div class="topbar">
+    <div class="brand">
+      <div class="logo" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M3 4h18M3 12h18M3 20h12"/></svg></div>
+      <div><h1>SemanticDiff Studio</h1><p>Semantic change intelligence for JSON & YAML</p></div>
+    </div>
+    <div class="spacer"></div>
+    <span class="pill" data-tip="All processing happens locally in your browser"><span class="dot"></span>Local-first</span>
+    <button class="icon-btn" data-tip="Swap Left and Right (S)" onclick="swap()" aria-label="Swap sides"><svg viewBox="0 0 24 24"><path d="M7 16l5-5-5-5M17 8l-5 5 5 5"/></svg></button>
+    <button class="icon-btn" data-tip="Load sample data (M)" onclick="sample()" aria-label="Load sample"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></button>
+    <button class="icon-btn" data-tip="Clear editors (C)" onclick="clearAll()" aria-label="Clear"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+    <button class="icon-btn" data-tip="Keyboard shortcuts (?) " onclick="openHelp()" aria-label="Help"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg></button>
+  </div>
+</header>
+
+<div class="wrap">
+  <div class="workspace">
+    <div class="editors">
+      <div class="card">
+        <div class="section-label"><span data-tip="Left document (baseline)">Before</span><span class="line"></span></div>
+        <div class="drop" id="dropL" data-tip="Drag & drop a JSON or YAML file"><input type="file" id="fileL" accept=".json,.yaml,.yml" onchange="readFile(event,'left')"><span>Drag & drop or click to load</span></div>
+        <textarea id="left" spellcheck="false" placeholder="Paste or load your baseline document (JSON / YAML)…" aria-label="Left document"></textarea>
+      </div>
+      <div class="card">
+        <div class="section-label"><span data-tip="Right document (candidate)">After</span><span class="line"></span></div>
+        <div class="drop" id="dropR" data-tip="Drag & drop a JSON or YAML file"><input type="file" id="fileR" accept=".json,.yaml,.yml" onchange="readFile(event,'right')"><span>Drag & drop or click to load</span></div>
+        <textarea id="right" spellcheck="false" placeholder="Paste or load your candidate document (JSON / YAML)…" aria-label="Right document"></textarea>
+      </div>
+    </div>
+
+    <div class="card" style="display:flex;flex-direction:column;gap:14px">
+      <div class="section-label"><span data-tip="Preset defines sensible defaults for common use-cases">Comparison preset</span><span class="line"></span></div>
+      <div class="toolbar">
+        <div class="select" data-tip="Choose a preset or keep Strict">
+          <select id="preset" onchange="compareDocs()">
+            <option value="">Strict comparison</option>
+            <option value="api">API / OpenAPI</option>
+            <option value="kubernetes">Kubernetes</option>
+            <option value="package">Package / lockfile</option>
+            <option value="human-friendly">Human-friendly</option>
+          </select>
+        </div>
+        <button class="btn primary" onclick="compareDocs()"><svg viewBox="0 0 24 24"><polyline points="18 20 12 14 6 20"/></svg>Compare</button>
+        <span style="flex:1"></span>
+      </div>
+
+      <details>
+        <summary data-tip="Advanced rules: ignore paths, treat arrays as unordered, keyed arrays, numeric tolerances, severity overrides, sensitive paths"><span class="chev">▸</span>Advanced comparison rules</summary>
+        <div class="panel">
+          <textarea id="rules" spellcheck="false" placeholder="YAML rules (see docs)…" aria-label="Rules"></textarea>
+        </div>
+      </details>
+
+      <details>
+        <summary data-tip="Optional JSON Schema to validate both documents against"><span class="chev">▸</span>JSON Schema validation</summary>
+        <div class="panel">
+          <textarea id="schema" spellcheck="false" placeholder="JSON Schema…" aria-label="Schema"></textarea>
+        </div>
+      </details>
+
+      <div id="stats" class="stats" aria-live="polite"></div>
+
+      <div class="filters">
+        <div class="search-wrap"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+          <input type="search" id="search" placeholder="Filter by path or explanation…" oninput="renderRows()" aria-label="Filter results">
+        </div>
+        <select id="severity" onchange="renderRows()" aria-label="Filter by severity">
+          <option value="">All impacts</option>
+          <option value="critical">Critical</option>
+          <option value="high">High</option>
+          <option value="medium">Medium</option>
+          <option value="low">Low</option>
+          <option value="info">Info</option>
+        </select>
+      </div>
+
+      <div class="result-head">
+        <div id="summary"></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="btn ghost" onclick="download('json')" data-tip="Download full JSON report"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>JSON</button>
+          <button class="btn ghost" onclick="download('markdown')" data-tip="Download Markdown PR report"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>Markdown</button>
+          <button class="btn ghost" onclick="download('html')" data-tip="Download standalone HTML report"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="16" x2="16" y2="16"/></svg>HTML</button>
+        </div>
+      </div>
+
+      <div class="table-wrap" id="rows" aria-label="Differences table"></div>
+    </div>
+  </div>
+
+  <footer>
+    <span>SemanticDiff <span id="ver">v3.0.0</span> — MIT</span>
+    <span>Made by <a href="https://github.com/PeaBoxLabs" target="_blank" rel="noopener" style="color:inherit">PeaBox Labs</a></span>
+  </footer>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<dialog id="help" style="border:none;background:var(--surface);color:var(--text);border-radius:var(--radius);max-width:520px;padding:0;box-shadow:var(--shadow)">
+  <form method="dialog" style="padding:22px">
+    <h2 style="margin:0 0 16px;font-size:20px">Keyboard shortcuts & tips</h2>
+    <dl style="display:grid;grid-template-columns:auto 1fr;gap:6px 16px;font-size:13px;color:var(--muted);line-height:1.8">
+      <dt><kbd class="kbd">Ctrl/Cmd+Enter</kbd></dt><dd>Run comparison</dd>
+      <dt><kbd class="kbd">S</kbd></dt><dd>Swap sides</dd>
+      <dt><kbd class="kbd">M</kbd></dt><dd>Load sample</dd>
+      <dt><kbd class="kbd">C</kbd></dt><dd>Clear editors</dd>
+      <dt><kbd class="kbd">?</kbd></dt><dd>Open this help</dd>
+      <dt>Drag & drop</dt><dd>Drop .json/.yaml files onto the editors</dd>
+      <dt>Presets</dt><dd>Choose a preset to auto-configure ignores, tolerances, keyed arrays</dd>
+      <dt>Secrets</dt><dd>Values at sensitive paths are auto-redacted in reports</dd>
+      <dt>Reports</dt><dd>JSON, Markdown (PR-ready), or standalone HTML</dd>
+    </dl>
+    <div style="margin-top:20px;text-align:right"><button class="btn primary" onclick="closeHelp()">Got it</button></div>
+  </form>
+</dialog>
+
+<script>
+const $ = s => document.querySelector(s);
+const fields = () => ({left:$('left').value, right:$('right').value, rules:$('rules').value, schema:$('schema').value, preset:$('preset').value});
+let current = null;
+
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
+
+function sevClass(s){return {"critical":"sev-critical","high":"sev-high","medium":"sev-medium","low":"sev-low","info":"sev-info"}[s]||""}
+function riskClass(r){return {"critical":"risk-critical","high":"risk-high","medium":"risk-medium","low":"risk-low","info":"risk-info"}[r]||"risk-info"}
+
+async function compareDocs(){
+  const btn = document.querySelector("button[onclick=compareDocs()]");
+  const orig = btn.innerHTML;
+  btn.disabled = true;
+  btn.innerHTML = `<svg style="width:16px;height:16px;animation:spin 1s linear infinite" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" fill="none" stroke-width="3" stroke-dasharray="30 30" stroke-linecap="round"/></svg>Comparing…`;
+  const style = document.createElement("style"); style.textContent = "@keyframes spin{to{transform:rotate(360deg)}}"; document.head.appendChild(style);
+  try{
+    const f = new FormData(); Object.entries(fields()).forEach(([k,v])=>f.append(k,v));
+    const r = await fetch("/api/compare",{method:"POST",body:f});
+    if(!r.ok){ $('rows').textContent = await r.text(); toast("Comparison failed","bad"); return }
+    current = await r.json(); render();
+  }catch(e){ toast("Network error","bad"); }
+  finally{ btn.disabled = false; btn.innerHTML = orig; style.remove(); }
+}
+
+function render(){
+  if(!current){ $('stats').innerHTML=""; $('summary').innerHTML=""; return }
+  const s = current.summary;
+  $('stats').innerHTML = '<div class="stat"><b>'+s.added+'</b><span>Added</span></div><div class="stat"><b>'+s.removed+'</b><span>Removed</span></div><div class="stat"><b>'+s.changed+'</b><span>Changed</span></div><div class="stat"><b>'+s.type_changed+'</b><span>Type</span></div><div class="stat"><b>'+s.ignored+'</b><span>Ignored</span></div>';
+  const risk = current.risk || "info";
+  $('summary').innerHTML = '<span class="equal-pill '+(current.equal?"eq":"neq")+'">'+(current.equal?"✓ Equivalent":"≠ Different")+'</span><span class="risk '+riskClass(risk)+'">'+risk+'</span>';
+  renderRows();
+}
+
+function renderRows(){
+  const el = $('rows');
+  if(!current){ el.innerHTML=""; return }
+  const q = $('search').value.toLowerCase();
+  const sev = $('severity').value;
+  const ds = current.differences.filter(d=>(!sev||d.severity===sev)&&(!q||(d.path+' '+d.explanation).toLowerCase().includes(q)));
+  if(!ds.length){ el.innerHTML = '<div style="padding:40px;text-align:center;color:var(--muted)">No differences'+(q?" matching filter":"")+(sev?" of "+sev+" severity":"")+'</div>'; return; }
+  el.innerHTML = '<table><thead><tr><th style="width:35%">Path & explanation</th><th style="width:12%">Change</th><th style="width:10%">Impact</th><th>Values</th></tr></thead><tbody>'+ds.map(d=>'<tr><td><code class="path">'+esc(d.path)+'</code><div class="expl">'+esc(d.explanation)+'</div></td><td>'+d.kind+'</td><td class="'+sevClass(d.severity)+'">'+(d.severity||"—")+'</td><td><pre>Before: '+esc(JSON.stringify(d.left,null,2))+'</pre><pre>After: '+esc(JSON.stringify(d.right,null,2))+'</pre></td></tr>').join("")+'</tbody></table>';
+}
+
+function readFile(e,id){
+  const f = e.target.files[0]; if(!f) return;
+  const r = new FileReader(); r.onload = () => { $('#'+id).value = r.result; }; r.readAsText(f);
+  e.target.value = "";
+}
+
+function swap(){ const x = $('left').value; $('left').value = $('right').value; $('right').value = x; }
+function clearAll(){ $('left').value = $('right').value = $('schema').value = ""; current = null; $('rows').innerHTML = $('stats').innerHTML = $('summary').innerHTML = ""; }
+function sample(){
+  $('left').value = `service:
+  name: API
+  replicas: 2
+  token: old-secret
+  tags: [stable, public]`;
+  $('right').value = `service:
+  name: api
+  replicas: 4
+  token: new-secret
+  tags: [public, stable]`;
+  $('preset').value = "human-friendly";
+  compareDocs();
+}
+async function download(fmt){
+  const f = new FormData(); Object.entries(fields()).forEach(([k,v])=>f.append(k,v));
+  const r = await fetch("/export/"+fmt,{method:"POST",body:f});
+  if(!r.ok){ toast("Export failed","bad"); return }
+  const b = await r.blob(); const a = document.createElement("a");
+  a.href = URL.createObjectURL(b); a.download = "semanticdiff."+((fmt==="markdown")?"md":fmt); a.click();
+  toast((fmt.toUpperCase()+" report downloaded"),"good");
+}
+function toast(msg,type="good"){ const t=$('toast'); t.textContent=msg; t.className="toast "+type+" show"; setTimeout(()=>t.classList.remove("show"),2800); }
+function openHelp(){ $('help').showModal(); }
+function closeHelp(){ $('help').close(); }
+document.addEventListener("keydown",e=>{
+  if((e.ctrlKey||e.metaKey)&&e.key==="Enter"){ e.preventDefault(); compareDocs(); }
+  else if(!e.ctrlKey&&!e.metaKey&&!e.target.matches("textarea,input,select")){
+    if(e.key==="s"||e.key==="S") swap();
+    else if(e.key==="m"||e.key==="M") sample();
+    else if(e.key==="c"||e.key==="C") clearAll();
+    else if(e.key==="?") openHelp();
+  }
+});
+["left","right"].forEach(id=>{
+  const drop = $('drop'+id.toUpperCase()[0]); const ta = $('#'+id);
+  ["dragenter","dragover"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault(); drop.classList.add("dragging");}));
+  ["dragleave","drop"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault(); drop.classList.remove("dragging");}));
+  drop.addEventListener("drop",e=>{ const f=e.dataTransfer.files[0]; if(f){ const r=new FileReader(); r.onload=()=>ta.value=r.result; r.readAsText(f); } });
+});
+$('preset').addEventListener("change",compareDocs);
+</script>
+</body>
+</html>
