@@ -34,5 +34,5 @@ def export(fmt:str,left:str=Form(...),right:str=Form(...),rules:str=Form(""),sch
     else:return Response("Unsupported",status_code=400)
     return Response(content,media_type=media,headers={"Content-Disposition":f"attachment; filename=semanticdiff.{ext}"})
 def main():
-    from .main import run_server
-    run_server()
+    import uvicorn
+    uvicorn.run("semanticdiff.web:app", host="127.0.0.1", port=8765)
