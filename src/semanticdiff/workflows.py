@@ -1,12 +1,17 @@
 from __future__ import annotations
-import hashlib, json, subprocess
+
+import hashlib
+import json
+import subprocess
 from pathlib import Path
 from typing import Any
+
 import yaml
-from .loader import load, loads
+
 from .engine import compare
-from .rules import Rules
 from .insights import enrich
+from .loader import load, loads
+from .rules import Rules
 
 SUPPORTED={'.json','.yaml','.yml'}
 
@@ -14,7 +19,7 @@ def payload(left:Any,right:Any,rules:Rules|None=None)->dict[str,Any]:
     rules=rules or Rules(); return enrich(compare(left,right,rules).to_dict(),rules.severity_paths,rules.sensitive_paths,True)
 
 def git_document(path:str, revision:str)->Any:
-    proc=subprocess.run(['git','show',f'{revision}:{path}'],text=True,capture_output=True)
+    proc=subprocess.run(['git','show',f'{revision}:{path}'],text=True,capture_output=True,check=False)
     if proc.returncode: raise ValueError(proc.stderr.strip() or f'Unable to read {path} at {revision}')
     return loads(proc.stdout, 'json' if path.endswith('.json') else 'yaml')
 
@@ -25,15 +30,17 @@ def compare_git(path:str,base:str,head:str='WORKTREE',rules:Rules|None=None)->di
 def compare_project(left_dir:str,right_dir:str,rules:Rules|None=None)->dict[str,Any]:
     a,b=Path(left_dir),Path(right_dir)
     files=sorted({p.relative_to(a) for p in a.rglob('*') if p.suffix.lower() in SUPPORTED}|{p.relative_to(b) for p in b.rglob('*') if p.suffix.lower() in SUPPORTED})
-    reports=[]
+    reports: list[dict[str, Any]] = []
     for rel in files:
         lp,rp=a/rel,b/rel
         if not lp.exists(): reports.append({'file':str(rel),'status':'added','risk':'medium','differences':[]}); continue
         if not rp.exists(): reports.append({'file':str(rel),'status':'removed','risk':'high','differences':[]}); continue
         try:
             report=payload(load(lp),load(rp),rules); report.update(file=str(rel),status='unchanged' if report['equal'] else 'modified'); reports.append(report)
-        except Exception as exc: reports.append({'file':str(rel),'status':'error','risk':'high','error':str(exc),'differences':[]})
-    counts={k:sum(x['status']==k for x in reports) for k in ('unchanged','modified','added','removed','error')}
+        except (OSError, ValueError, KeyError, TypeError) as exc: reports.append({'file':str(rel),'status':'error','risk':'high','error':str(exc),'differences':[]})
+    counts={}
+    for k in ('unchanged','modified','added','removed','error'):
+        counts[k] = sum(1 for r in reports if r.get('status') == k)
     risk_order={'none':0,'low':1,'medium':2,'high':3,'critical':4}
     overall=max((x.get('risk','none') for x in reports),key=lambda x:risk_order.get(x,0),default='none')
     return {'mode':'project','left':str(a),'right':str(b),'summary':counts,'risk':overall,'files':reports}

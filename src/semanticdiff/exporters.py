@@ -1,7 +1,10 @@
 from __future__ import annotations
-from html import escape
+
 import json
+from html import escape
+
 from .engine import DiffResult
+
 
 def render_json(result: DiffResult) -> str:
     return json.dumps(result.to_dict(), indent=2, ensure_ascii=False)
@@ -20,7 +23,8 @@ def render_html(result: DiffResult) -> str:
     return f'''<!doctype html><html><head><meta charset="utf-8"><title>SemanticDiff Report</title><style>body{{font:14px system-ui;margin:32px;color:#172033}}table{{border-collapse:collapse;width:100%}}th,td{{border:1px solid #d8deea;padding:10px;text-align:left;vertical-align:top}}th{{background:#f2f5fa}}pre{{white-space:pre-wrap;max-width:520px}}span{{padding:3px 7px;border-radius:10px;background:#eee}}.added{{background:#d9fbe5}}.removed{{background:#ffe0e0}}.changed,.type_changed{{background:#fff1c7}}</style></head><body><h1>SemanticDiff Report</h1><p><strong>{'Equivalent' if result.equal else 'Different'}</strong></p><pre>{escape(json.dumps(result.summary, indent=2))}</pre><table><thead><tr><th>Path</th><th>Change</th><th>Left</th><th>Right</th></tr></thead><tbody>{rows}</tbody></table></body></html>'''
 
 def render_csv_payload(payload: dict) -> str:
-    import csv, io
+    import csv
+    import io
     out = io.StringIO()
     writer = csv.DictWriter(out, fieldnames=["path", "kind", "severity", "message", "explanation", "left", "right"])
     writer.writeheader()

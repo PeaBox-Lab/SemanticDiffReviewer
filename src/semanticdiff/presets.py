@@ -1,7 +1,10 @@
 from __future__ import annotations
+
+from typing import Any
+
 from .rules import Rules
 
-PRESETS = {
+PRESETS: dict[str, dict[str, Any]] = {
     "strict": {},
     "api": {
         "ignore_paths": ["/info/version", "/servers/*/description"],
@@ -25,7 +28,7 @@ PRESETS = {
 def get_preset(name: str | None) -> Rules:
     if not name: return Rules()
     if name not in PRESETS: raise ValueError(f"Unknown preset: {name}. Choose: {', '.join(PRESETS)}")
-    return Rules.from_dict(PRESETS[name])
+    return Rules.from_dict(dict(PRESETS[name]))
 
 def merge(base: Rules, override: Rules) -> Rules:
     return Rules(

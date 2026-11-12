@@ -1,17 +1,33 @@
 from __future__ import annotations
-import argparse,json,sys
+
+import argparse
+import json
+import sys
 from pathlib import Path
-from .loader import load,loads
-from .rules import Rules
+
 from .engine import compare
-from .schema import validate_pair
-from .policy import Policy,evaluate_policy
-from .insights import enrich,LEVELS
-from .presets import PRESETS,get_preset,merge
-from .exporters import render_csv_payload,render_json_patch,render_sarif_payload,render_pr_markdown
-from .workflows import compare_git,compare_project,migration_markdown,baseline_create,baseline_check
+from .exporters import (
+    render_csv_payload,
+    render_json_patch,
+    render_pr_markdown,
+    render_sarif_payload,
+)
+from .insights import LEVELS, enrich
+from .loader import load, loads
 from .openapi import analyze_openapi
 from .plugins import run_plugins
+from .policy import Policy, evaluate_policy
+from .presets import PRESETS, get_preset, merge
+from .rules import Rules
+from .schema import validate_pair
+from .workflows import (
+    baseline_check,
+    baseline_create,
+    compare_git,
+    compare_project,
+    migration_markdown,
+)
+
 
 def _rules(a): return merge(get_preset(getattr(a,'preset',None)),Rules.load(getattr(a,'rules',None)))
 def _write(content,output=None): Path(output).write_text(content,encoding='utf-8') if output else print(content,end='' if content.endswith('\n') else '\n')

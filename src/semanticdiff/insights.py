@@ -1,9 +1,10 @@
 from __future__ import annotations
-from typing import Any
-from fnmatch import fnmatch
-import re
 
-SECRET_PATTERN = re.compile(r"(secret|password|passwd|token|api[-_]?key|private[-_]?key|connection[-_]?string|credential)", re.I)
+import re
+from fnmatch import fnmatch
+from typing import Any
+
+SECRET_PATTERN = re.compile(r"(secret|password|passwd|token|api[-_]?key|private[-_]?key|connection[-_]?string|credential)", re.IGNORECASE)
 LEVELS = {"info": 0, "low": 1, "medium": 2, "high": 3, "critical": 4}
 
 def is_sensitive(path: str, extra: list[str] | None = None) -> bool:
@@ -38,5 +39,6 @@ def enrich(payload: dict[str, Any], severity_paths: dict[str, str] | None = None
         if redact and item["sensitive"]:
             item["left"] = item["right"] = "***REDACTED***"
     payload["impact"] = counts
-    payload["risk"] = max((x["severity"] for x in payload.get("differences", [])), key=LEVELS.get, default="info")
+    values = [x["severity"] for x in payload.get("differences", []) if x.get("severity")]
+    payload["risk"] = max(values, default="info", key=lambda s: LEVELS[s]) if values else "info"
     return payload

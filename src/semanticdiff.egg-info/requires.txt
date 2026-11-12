@@ -1,0 +1,12 @@
+PyYAML<7,>=6.0
+fastapi<1,>=0.115
+uvicorn<1,>=0.30
+python-multipart<1,>=0.0.9
+jsonschema<5,>=4.23
+
+[dev]
+pytest<9,>=8
+pytest-cov<7,>=5
+ruff<1,>=0.8
+mypy<2,>=1.13
+build<2,>=1.2

@@ -1,0 +1,19 @@
+{
+  "equal": true,
+  "summary": {
+    "added": 0,
+    "removed": 0,
+    "changed": 0,
+    "type_changed": 0,
+    "ignored": 0
+  },
+  "differences": [],
+  "impact": {
+    "info": 0,
+    "low": 0,
+    "medium": 0,
+    "high": 0,
+    "critical": 0
+  },
+  "risk": "info"
+}

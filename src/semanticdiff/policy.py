@@ -1,7 +1,9 @@
 from __future__ import annotations
-from dataclasses import dataclass, field, asdict
+
+from dataclasses import asdict, dataclass, field
 from fnmatch import fnmatch
 from typing import Any
+
 
 @dataclass(slots=True)
 class Policy:
@@ -11,7 +13,7 @@ class Policy:
     max_changes: int | None = None
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any] | None) -> "Policy":
+    def from_dict(cls, data: dict[str, Any] | None) -> Policy:
         data = data or {}
         return cls(list(data.get("deny_changes", [])), list(data.get("deny_removals", [])), list(data.get("deny_additions", [])), data.get("max_changes"))
 

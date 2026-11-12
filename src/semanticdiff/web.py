@@ -1,15 +1,19 @@
 from __future__ import annotations
+
+import json
 from pathlib import Path
-import json, yaml
+
+import yaml
 from fastapi import FastAPI, Form
 from fastapi.responses import HTMLResponse, Response
-from .loader import loads
-from .rules import Rules
+
 from .engine import compare
-from .schema import validate_pair
 from .insights import enrich
+from .loader import loads
 from .presets import get_preset, merge
-from .exporters import render_markdown, render_html
+from .rules import Rules
+from .schema import validate_pair
+
 app=FastAPI(title="SemanticDiff Studio",version="2.0.0")
 TEMPLATE=(Path(__file__).parent/"templates"/"index.html").read_text(encoding="utf-8")
 @app.get("/",response_class=HTMLResponse)
@@ -30,4 +34,5 @@ def export(fmt:str,left:str=Form(...),right:str=Form(...),rules:str=Form(""),sch
     else:return Response("Unsupported",status_code=400)
     return Response(content,media_type=media,headers={"Content-Disposition":f"attachment; filename=semanticdiff.{ext}"})
 def main():
-    import uvicorn; uvicorn.run("semanticdiff.web:app",host="127.0.0.1",port=8765)
+    from .main import run_server
+    run_server()

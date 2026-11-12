@@ -1,0 +1,3 @@
+[console_scripts]
+semanticdiff = semanticdiff.cli:main
+semanticdiff-ui = semanticdiff.web:main

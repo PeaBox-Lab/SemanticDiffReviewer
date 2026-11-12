@@ -1,9 +1,12 @@
 from __future__ import annotations
+
 from dataclasses import dataclass, field
 from fnmatch import fnmatch
 from pathlib import Path
 from typing import Any
+
 import yaml
+
 
 @dataclass(slots=True)
 class Rules:
@@ -16,7 +19,7 @@ class Rules:
     sensitive_paths: list[str] = field(default_factory=list)
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any] | None) -> "Rules":
+    def from_dict(cls, data: dict[str, Any] | None) -> Rules:
         data = data or {}
         return cls(
             ignore_paths=list(data.get("ignore_paths", [])),
@@ -29,7 +32,7 @@ class Rules:
         )
 
     @classmethod
-    def load(cls, path: str | Path | None) -> "Rules":
+    def load(cls, path: str | Path | None) -> Rules:
         if not path:
             return cls()
         return cls.from_dict(yaml.safe_load(Path(path).read_text(encoding="utf-8")))

@@ -1,4 +1,5 @@
-from semanticdiff import compare, Rules
+from semanticdiff import Rules, compare
+
 
 def test_object_order_and_format_do_not_matter():
     assert compare({"a": 1, "b": 2}, {"b": 2, "a": 1}).equal
@@ -46,7 +47,7 @@ def test_policy_guardrail():
 
 def test_sarif_and_migration():
     from semanticdiff.insights import enrich
-    from semanticdiff.workflows import sarif, migration_markdown
+    from semanticdiff.workflows import migration_markdown, sarif
     result=enrich(compare({'a':1},{'a':2}).to_dict(),{},[],True)
     assert sarif(result)['runs'][0]['results'][0]['ruleId']=='semanticdiff.changed'
     assert 'Migration Guide' in migration_markdown(result)
@@ -59,7 +60,7 @@ def test_project_mode(tmp_path):
     assert out['summary']['modified']==1
 
 def test_baseline(tmp_path):
-    from semanticdiff.workflows import baseline_create,baseline_check
+    from semanticdiff.workflows import baseline_check, baseline_create
     f=tmp_path/'a.yaml'; base=tmp_path/'base.yaml'; f.write_text('a: 1')
     baseline_create(str(f),str(base)); f.write_text('a: 2')
     assert not baseline_check(str(base),str(f))['equal']
